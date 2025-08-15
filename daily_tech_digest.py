@@ -32,16 +32,18 @@ from html import escape
 DEFAULT_FEEDS = [
     # Technology & Startups
     "https://techcrunch.com/feed/",
-    "https://databricks.com/feed",
-    "https://towardsdatascience.com/feed",
     "https://www.theverge.com/rss/index.xml",
     "https://www.wired.com/feed/rss",
     "https://venturebeat.com/feed/",
     # Developer & Product Trends
     "https://news.ycombinator.com/rss",
+    "https://www.producthunt.com/feed",
     # Specialized Innovation & Science
     "https://www.technologyreview.com/feed/",
     "https://spectrum.ieee.org/rss/fulltext",
+    # Data Feed
+    "https://databricks.com/feed",
+    "https://towardsdatascience.com/feed",
     "https://aws.amazon.com/blogs/big-data/feed/"
 
 ]
@@ -52,6 +54,7 @@ FEED_NAME_MAP = {
     "www.wired.com": "Wired",
     "venturebeat.com": "VentureBeat",
     "news.ycombinator.com": "Hacker News",
+    "www.producthunt.com": "Product Hunt",
     "www.technologyreview.com": "Technology Review",
     "spectrum.ieee.org": "Spectrum ieee",
     "databricks.com": "Databricks Blog",
@@ -200,30 +203,39 @@ def build_digest_html(feeds, hours, max_per_cat, tz_name, min_items=1):
         buckets[cat].sort(key=lambda x: x["dt"], reverse=True)
         buckets[cat] = buckets[cat][:max_per_cat]
 
+    def slugify(s: str) -> str:
+        return re.sub(r"[^a-zA-Z0-9]+", "-", s).strip("-").lower()
+
+    non_empty_sources = [src for src in source_order if buckets.get(src)]
+    if not non_empty_sources:
+        non_empty_sources = []
+
     total_items = sum(len(buckets[c]) for c in buckets)
     date_str = now_local.strftime("%B %d, %Y")
 
     css = """
-    :root { --fg:#0b0b0b; --sub:#6a6a6a; --bg:#fff; --card:#fff; --border:#eaeaea; --link:#0969da; }
+    :root { --fg:#0b0b0b; --sub:#6a6a6a; --bg:#fff; --card:#fff; --border:#eaeaea; --link:#0969da; --chip:#d0e7ff; }
     * { box-sizing: border-box; }
     html, body { margin:0; padding:0; background:var(--bg); color:var(--fg); }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-           line-height: 1.6; font-size: 17px; }
-    header { position: sticky; top: 0; background: var(--bg); border-bottom: 1px solid var(--border); padding: 12px 16px; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; font-size: 17px; }
+    header { position: sticky; top: 0; background: var(--bg); border-bottom: 1px solid var(--border); padding: 12px 16px; z-index: 10; }
     header h1 { font-size: 22px; margin: 0 0 2px; font-weight: 700; }
     header .sub { color: var(--sub); font-size: 14px; }
     main { padding: 12px; max-width: 820px; margin: 0 auto; }
+    .tabs { position: sticky; top: 82px; background: var(--bg); border-bottom: 1px solid var(--border); padding: 8px 12px; display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .tab-btn { white-space: nowrap; border: 1px solid var(--border); background: var(--card); padding: 6px 10px; border-radius: 999px; font-size: 13px; color: var(--fg); text-decoration: none; }
+    .tab-btn.active { background: var(--chip); border-color: #bcd8ff; }
     section { margin: 18px 0 28px; }
-    .sec-title { font-size: 18px; font-weight: 600; margin: 0 0 12px; padding: 0 2px; }
+    .sec-title { display:none; }
+    .tab-section { display: none; }
+    .tab-section.active { display: block; }
     .item { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin: 12px 0; }
-    .title { font-size: 16.5px; font-weight: 600; margin: 0 0 6px; }
+    .title { font-size: 16px; font-weight: 300; margin: 0 0 6px; }
     .meta { color: var(--sub); font-size: 13px; }
     .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
     .left { display: flex; align-items: center; gap: 8px; }
-    .time-badge { display: inline-block; font-size: 12px; border: 1px solid var(--border);
-                  border-radius: 999px; padding: 2px 8px; background:#fff; }
-    .btn { display: inline-block; font-size: 13px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px;
-            text-decoration: none; color: var(--fg); background: #f6f8fa; }
+    .time-badge { display: inline-block; font-size: 12px; border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; background:#fff; }
+    .btn { display: inline-block; font-size: 13px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: #6a6a6a; background: #eaeaea00; }
     .btn:active { opacity: .75; }
     footer { color: var(--sub); font-size: 13px; text-align: center; padding: 24px 0 32px; }
     """
@@ -239,21 +251,29 @@ def build_digest_html(feeds, hours, max_per_cat, tz_name, min_items=1):
     parts.append("</header>")
     parts.append("<main>")
 
-    for src in source_order:
+    # Tabs navbar
+    parts.append("<nav class='tabs'>")
+    for idx, src in enumerate(non_empty_sources):
+        sid = slugify(src)
+        active = " active" if idx == 0 else ""
+        parts.append(f"<button class='tab-btn{active}' data-target='sec-{sid}'>{escape(src)}</button>")
+    parts.append("</nav>")
+
+    for idx, src in enumerate(non_empty_sources):
         items = buckets.get(src, [])
-        if not items:
-            continue
-        parts.append(f"<section><div class='sec-title'>{escape(src)}</div>")
+        sid = slugify(src)
+        section_class = "tab-section active" if idx == 0 else "tab-section"
+        parts.append(f"<section id='sec-{sid}' class='{section_class}'>")
         for it in items:
-            t = it["dt"].strftime("%H:%M")
+            t = it["dt"].strftime("%-d-%b %H:%M")
             title = escape(it["title"])
             link = escape(it["link"])
             parts.append(
                 f"<div class='item'>"
                 f"<div class='title'>{title}</div>"
                 f"<div class='row'>"
-                f"  <div class='left meta'><span class='time-badge'>{t}</span><span>{escape(src)}</span></div>"
-                f"  <a class='btn' href='{link}' target='_blank' rel='noopener'>Open</a>"
+                f"  <div class='left meta'><span class='time-badge'>{t}</span></div>"
+                f"  <a class='btn' href='{link}' target='_blank' rel='noopener'>Read</a>"
                 f"</div>"
                 f"</div>"
             )
@@ -264,6 +284,30 @@ def build_digest_html(feeds, hours, max_per_cat, tz_name, min_items=1):
 
     parts.append("</main>")
     parts.append("<footer>Generated by Daily Tech Digest</footer>")
+
+    script = """
+    <script>
+    (function(){
+      const buttons = Array.from(document.querySelectorAll('.tab-btn'));
+      const sections = Array.from(document.querySelectorAll('.tab-section'));
+      function activate(id){
+        sections.forEach(s=>s.classList.toggle('active', s.id===id));
+        buttons.forEach(b=>b.classList.toggle('active', b.getAttribute('data-target')===id));
+        history.replaceState(null, '', '#' + id.replace('sec-',''));
+        window.scrollTo({top:0, behavior:'instant'});
+      }
+      buttons.forEach(b=>b.addEventListener('click', ()=>activate(b.getAttribute('data-target'))));
+      // On load: if there's a hash matching a section, activate it
+      const hash = location.hash.replace('#','');
+      if (hash) {
+        const id = 'sec-' + hash;
+        if (document.getElementById(id)) activate(id);
+      }
+    })();
+    </script>
+    """
+    parts.append(script)
+
     parts.append("</body></html>")
     return "".join(parts)
 
@@ -278,8 +322,8 @@ def build_digest(feeds, hours, max_per_cat, tz_name, out_path, min_items=1):
 def parse_args():
     ap = argparse.ArgumentParser(description="Generate a Daily Tech Digest (Markdown).")
     ap.add_argument("--out", default="digest.md", help="Output Markdown file path")
-    ap.add_argument("--hours", type=int, default=24, help="Lookback window in hours")
-    ap.add_argument("--max-per-cat", type=int, default=7, help="Max items per source")
+    ap.add_argument("--hours", type=int, default=72, help="Lookback window in hours")
+    ap.add_argument("--max-per-cat", type=int, default=10, help="Max items per source")
     ap.add_argument("--tz", default=os.environ.get("DIGEST_TZ", "Asia/Tbilisi"),
                     help="Timezone for timestamps and header (e.g., Europe/London)")
     ap.add_argument("--feeds-file", default=None,
