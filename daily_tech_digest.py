@@ -239,6 +239,7 @@ def build_digest_html(feeds, hours, max_per_cat, tz_name, min_items=1):
     parts = []
     parts.append("<!doctype html><html lang='en'><meta name='viewport' content='width=device-width, initial-scale=1'>")
     parts.append(f"<title>Daily Tech Digest — {escape(date_str)}</title>")
+    parts.append("<link rel='icon' type='image/x-icon' href='favicon.ico'>")
     parts.append(f"<style>{css}</style>")
     parts.append("<body>")
     parts.append("<header>")
