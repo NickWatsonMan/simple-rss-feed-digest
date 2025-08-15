@@ -25,6 +25,7 @@ from urllib.parse import urlparse
 import feedparser
 import requests
 from dateutil import tz
+from html import escape
 
 # -------------------------- Configuration --------------------------
 
@@ -108,7 +109,7 @@ def feed_source_name(feed_url: str) -> str:
     return FEED_NAME_MAP.get(d, d or "source")
 
 
-def build_digest(feeds, hours, max_per_cat, tz_name, min_items=1):
+def build_digest_markdown(feeds, hours, max_per_cat, tz_name, min_items=1):
     to_zone = tz.gettz(tz_name) if tz_name else tz.tzlocal()
     now_local = datetime.now(to_zone)
     now_utc = now_local.astimezone(timezone.utc)
@@ -165,11 +166,122 @@ def build_digest(feeds, hours, max_per_cat, tz_name, min_items=1):
 
     return "\n".join(md_lines)
 
+def build_digest_html(feeds, hours, max_per_cat, tz_name, min_items=1):
+    """Generate a mobile-friendly HTML page."""
+    to_zone = tz.gettz(tz_name) if tz_name else tz.tzlocal()
+    now_local = datetime.now(to_zone)
+    now_utc = now_local.astimezone(timezone.utc)
+    window_start = now_utc - timedelta(hours=hours)
+
+    seen = set()
+    source_order = []
+    buckets = {}
+
+    for url in feeds:
+        parsed = fetch_feed(url)
+        src = feed_source_name(url)
+        if src not in buckets:
+            buckets[src] = []
+            source_order.append(src)
+        for entry in parsed.get("entries", []):
+            dt = entry_datetime(entry)
+            if dt < window_start:
+                continue
+            sid = story_id(entry)
+            if sid in seen:
+                continue
+            seen.add(sid)
+            title = (entry.get("title") or "(no title)").strip()
+            link = entry.get("link") or ""
+            buckets[src].append({
+                "title": title,
+                "link": link,
+                "dt": dt.astimezone(to_zone),
+            })
+
+    for cat in buckets:
+        buckets[cat].sort(key=lambda x: x["dt"], reverse=True)
+        buckets[cat] = buckets[cat][:max_per_cat]
+
+    total_items = sum(len(buckets[c]) for c in buckets)
+    date_str = now_local.strftime("%B %d, %Y")
+
+    css = """
+    :root { --fg:#0b0b0b; --sub:#6a6a6a; --bg:#fff; --card:#fff; --border:#eaeaea; --link:#0969da; }
+    * { box-sizing: border-box; }
+    html, body { margin:0; padding:0; background:var(--bg); color:var(--fg); }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+           line-height: 1.6; font-size: 17px; }
+    header { position: sticky; top: 0; background: var(--bg); border-bottom: 1px solid var(--border); padding: 12px 16px; }
+    header h1 { font-size: 22px; margin: 0 0 2px; font-weight: 700; }
+    header .sub { color: var(--sub); font-size: 14px; }
+    main { padding: 12px; max-width: 820px; margin: 0 auto; }
+    section { margin: 18px 0 28px; }
+    .sec-title { font-size: 18px; font-weight: 600; margin: 0 0 12px; padding: 0 2px; }
+    .item { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin: 12px 0; }
+    .title { font-size: 16.5px; font-weight: 600; margin: 0 0 6px; }
+    .meta { color: var(--sub); font-size: 13px; }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .left { display: flex; align-items: center; gap: 8px; }
+    .time-badge { display: inline-block; font-size: 12px; border: 1px solid var(--border);
+                  border-radius: 999px; padding: 2px 8px; background:#fff; }
+    .btn { display: inline-block; font-size: 13px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px;
+            text-decoration: none; color: var(--fg); background: #f6f8fa; }
+    .btn:active { opacity: .75; }
+    footer { color: var(--sub); font-size: 13px; text-align: center; padding: 24px 0 32px; }
+    """
+
+    parts = []
+    parts.append("<!doctype html><html lang='en'><meta name='viewport' content='width=device-width, initial-scale=1'>")
+    parts.append(f"<title>Daily Tech Digest — {escape(date_str)}</title>")
+    parts.append(f"<style>{css}</style>")
+    parts.append("<body>")
+    parts.append("<header>")
+    parts.append(f"<h1>Daily Tech Digest</h1>")
+    parts.append(f"<div class='sub'>{escape(date_str)}</div>")
+    parts.append("</header>")
+    parts.append("<main>")
+
+    for src in source_order:
+        items = buckets.get(src, [])
+        if not items:
+            continue
+        parts.append(f"<section><div class='sec-title'>{escape(src)}</div>")
+        for it in items:
+            t = it["dt"].strftime("%H:%M")
+            title = escape(it["title"])
+            link = escape(it["link"])
+            parts.append(
+                f"<div class='item'>"
+                f"<div class='title'>{title}</div>"
+                f"<div class='row'>"
+                f"  <div class='left meta'><span class='time-badge'>{t}</span><span>{escape(src)}</span></div>"
+                f"  <a class='btn' href='{link}' target='_blank' rel='noopener'>Open</a>"
+                f"</div>"
+                f"</div>"
+            )
+        parts.append("</section>")
+
+    if total_items < min_items:
+        parts.append("<p class='meta'>(No items found in the selected window. Consider increasing the lookback.)</p>")
+
+    parts.append("</main>")
+    parts.append("<footer>Generated by Daily Tech Digest</footer>")
+    parts.append("</body></html>")
+    return "".join(parts)
+
+def build_digest(feeds, hours, max_per_cat, tz_name, out_path, min_items=1):
+    """Dispatch to HTML or Markdown based on the output filename extension."""
+    if out_path.lower().endswith('.html'):
+        return build_digest_html(feeds, hours, max_per_cat, tz_name, min_items)
+    else:
+        return build_digest_markdown(feeds, hours, max_per_cat, tz_name, min_items)
+
 
 def parse_args():
     ap = argparse.ArgumentParser(description="Generate a Daily Tech Digest (Markdown).")
     ap.add_argument("--out", default="digest.md", help="Output Markdown file path")
-    ap.add_argument("--hours", type=int, default=168, help="Lookback window in hours")
+    ap.add_argument("--hours", type=int, default=72, help="Lookback window in hours")
     ap.add_argument("--max-per-cat", type=int, default=10, help="Max items per source")
     ap.add_argument("--tz", default=os.environ.get("DIGEST_TZ", "Asia/Tbilisi"),
                     help="Timezone for timestamps and header (e.g., Europe/London)")
@@ -194,14 +306,15 @@ def load_feeds(feeds_file):
 def main():
     args = parse_args()
     feeds = load_feeds(args.feeds_file)
-    md = build_digest(
+    output = build_digest(
         feeds=feeds,
         hours=args.hours,
         max_per_cat=args.max_per_cat,
         tz_name=args.tz,
+        out_path=args.out,
     )
     with open(args.out, "w", encoding="utf-8") as f:
-        f.write(md)
+        f.write(output)
     print(f"Wrote {args.out}")
 
 
