@@ -30,20 +30,15 @@ from html import escape
 # -------------------------- Configuration --------------------------
 
 DEFAULT_FEEDS = [
-    # Technology & Startups
     "https://techcrunch.com/feed/",
+    "https://databricks.com/feed",
+    "https://news.ycombinator.com/rss",
+    "https://towardsdatascience.com/feed",
     "https://www.theverge.com/rss/index.xml",
     "https://www.wired.com/feed/rss",
     "https://venturebeat.com/feed/",
-    # Developer & Product Trends
-    "https://news.ycombinator.com/rss",
-    "https://www.producthunt.com/feed",
-    # Specialized Innovation & Science
     "https://www.technologyreview.com/feed/",
     "https://spectrum.ieee.org/rss/fulltext",
-    # Data Feed
-    "https://databricks.com/feed",
-    "https://towardsdatascience.com/feed",
     "https://aws.amazon.com/blogs/big-data/feed/"
 
 ]
@@ -54,7 +49,6 @@ FEED_NAME_MAP = {
     "www.wired.com": "Wired",
     "venturebeat.com": "VentureBeat",
     "news.ycombinator.com": "Hacker News",
-    "www.producthunt.com": "Product Hunt",
     "www.technologyreview.com": "Technology Review",
     "spectrum.ieee.org": "Spectrum ieee",
     "databricks.com": "Databricks Blog",
