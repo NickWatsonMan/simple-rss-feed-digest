@@ -2,7 +2,7 @@ name: Daily Tech Digest
 
 on:
   schedule:
-    - cron: "0 3 * * *"   # 03:00 UTC = 07:00 Asia/Tbilisi
+    - cron: "0 * * * *"   # hourly
   workflow_dispatch:       # allow manual runs
 
 jobs:
