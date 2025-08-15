@@ -21,16 +21,17 @@ jobs:
       - name: Install deps
         run: pip install -r requirements.txt
 
-      - name: Generate digest
+      - name: Generate digest for GitHub Pages
         env:
           DIGEST_TZ: "Asia/Tbilisi"
         run: |
-          python daily_tech_digest.py --out digest.md --hours 24 --max-per-cat 7
-
+          mkdir -p docs
+          python daily_tech_digest.py --out docs/index.md --hours 24 --max-per-cat 7
+      
       - name: Commit & push if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add digest.md
+          git add docs/index.md
           git commit -m "Daily digest $(date -u +'%Y-%m-%d')" || echo "No changes"
           git push
