@@ -294,9 +294,32 @@ def build_digest_html(feeds, hours, max_per_cat, tz_name, min_items=1):
         sections.forEach(s=>s.classList.toggle('active', s.id===id));
         buttons.forEach(b=>b.classList.toggle('active', b.getAttribute('data-target')===id));
         history.replaceState(null, '', '#' + id.replace('sec-',''));
-        window.scrollTo({top:0, behavior:'instant'});
       }
       buttons.forEach(b=>b.addEventListener('click', ()=>activate(b.getAttribute('data-target'))));
+      // Swipe navigation on the content area (iPhone-friendly)
+      (function(){
+        const el = document.querySelector('main');
+        let startX = 0, startY = 0;
+        const X_THRESHOLD = 60;  // min horizontal distance in px
+        const Y_THRESHOLD = 40;  // max vertical slop in px
+        el.addEventListener('touchstart', (e)=>{
+          if (e.touches.length !== 1) return;
+          startX = e.touches[0].clientX;
+          startY = e.touches[0].clientY;
+        }, {passive:true});
+        el.addEventListener('touchend', (e)=>{
+          if (e.changedTouches.length !== 1) return;
+          const dx = e.changedTouches[0].clientX - startX;
+          const dy = Math.abs(e.changedTouches[0].clientY - startY);
+          if (Math.abs(dx) < X_THRESHOLD || dy > Y_THRESHOLD) return;
+          const current = sections.findIndex(s => s.classList.contains('active'));
+          if (current === -1) return;
+          let next = current;
+          if (dx < 0) next = Math.min(current + 1, sections.length - 1);   // swipe left → next tab
+          else next = Math.max(current - 1, 0);                             // swipe right → prev tab
+          if (next !== current) activate(sections[next].id);
+        }, {passive:true});
+      })();
       // On load: if there's a hash matching a section, activate it
       const hash = location.hash.replace('#','');
       if (hash) {
