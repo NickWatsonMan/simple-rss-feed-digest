@@ -20,7 +20,7 @@ import os
 import re
 import sys
 from datetime import datetime, timedelta, timezone
-from urllib.parse import urlparse
+from urllib.parse import urlparse, quote_plus
 
 import feedparser
 import requests
@@ -234,9 +234,11 @@ def build_digest_html(feeds, hours, max_per_cat, tz_name, min_items=1):
     .meta { color: var(--sub); font-size: 13px; }
     .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
     .left { display: flex; align-items: center; gap: 8px; }
+    .right { display: flex; align-items: center; gap: 8px; }
     .time-badge { display: inline-block; font-size: 12px; border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; background:#fff; }
     .btn { display: inline-block; font-size: 13px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: #6a6a6a; background: #eaeaea00; }
     .btn:active { opacity: .75; }
+    .btn.secondary { background: #eef6ff; }
     footer { color: var(--sub); font-size: 13px; text-align: center; padding: 24px 0 32px; }
     """
 
@@ -268,12 +270,26 @@ def build_digest_html(feeds, hours, max_per_cat, tz_name, min_items=1):
             t = it["dt"].strftime("%-d-%b %H:%M")
             title = escape(it["title"])
             link = escape(it["link"])
+            raw_link = it["link"]
+            prompt = (
+                "I will provide you with a URL to an online article.\n"
+                "1. Access the content at that URL and read it in full.\n"
+                "2. Summarize the article concisely, capturing the main points, key arguments, and any important data or examples.\n"
+                "3. Keep the summary neutral and objective, without adding personal opinions.\n"
+                "4. Present the summary in bullet points and also as a short paragraph (3–5 sentences).\n"
+                f"URL: {raw_link}"
+            )
+            ai_summary_url = "https://chat.openai.com/?q=" + quote_plus(prompt)
+            ai_summary_url_esc = escape(ai_summary_url)
             parts.append(
                 f"<div class='item'>"
                 f"<div class='title'>{title}</div>"
                 f"<div class='row'>"
                 f"  <div class='left meta'><span class='time-badge'>{t}</span></div>"
-                f"  <a class='btn' href='{link}' target='_blank' rel='noopener'>Read</a>"
+                f"  <div class='right'>"
+                f"    <a class='btn' href='{link}' target='_blank' rel='noopener'>Read</a>"
+                f"    <a class='btn secondary' href='{ai_summary_url_esc}' target='_blank' rel='noopener'>AI</a>"
+                f"  </div>"
                 f"</div>"
                 f"</div>"
             )
@@ -294,6 +310,13 @@ def build_digest_html(feeds, hours, max_per_cat, tz_name, min_items=1):
         sections.forEach(s=>s.classList.toggle('active', s.id===id));
         buttons.forEach(b=>b.classList.toggle('active', b.getAttribute('data-target')===id));
         history.replaceState(null, '', '#' + id.replace('sec-',''));
+        // Ensure the active tab button is visible and roughly centered in the bottom tabs bar
+        const nav = document.querySelector('.tabs');
+        const activeBtn = buttons.find(b => b.classList.contains('active'));
+        if (nav && activeBtn) {
+          const targetLeft = activeBtn.offsetLeft - (nav.clientWidth - activeBtn.offsetWidth) / 2;
+          nav.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
+        }
       }
       buttons.forEach(b=>b.addEventListener('click', ()=>activate(b.getAttribute('data-target'))));
       // Swipe navigation on the content area (iPhone-friendly)
