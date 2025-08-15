@@ -26,7 +26,7 @@ jobs:
           DIGEST_TZ: "Asia/Tbilisi"
         run: |
           mkdir -p docs
-          python daily_tech_digest.py --out docs/index.md --hours 24 --max-per-cat 7
+          python daily_tech_digest.py --out docs/index.md --hours 72 --max-per-cat 10
       
       - name: Commit & push if changed
         run: |
