@@ -32,18 +32,16 @@ from html import escape
 DEFAULT_FEEDS = [
     # Technology & Startups
     "https://techcrunch.com/feed/",
+    "https://databricks.com/feed",
+    "https://towardsdatascience.com/feed",
     "https://www.theverge.com/rss/index.xml",
     "https://www.wired.com/feed/rss",
     "https://venturebeat.com/feed/",
     # Developer & Product Trends
     "https://news.ycombinator.com/rss",
-    "https://www.producthunt.com/feed",
     # Specialized Innovation & Science
     "https://www.technologyreview.com/feed/",
     "https://spectrum.ieee.org/rss/fulltext",
-    # Data Feed
-    "https://databricks.com/feed",
-    "https://towardsdatascience.com/feed",
     "https://aws.amazon.com/blogs/big-data/feed/"
 
 ]
@@ -54,7 +52,6 @@ FEED_NAME_MAP = {
     "www.wired.com": "Wired",
     "venturebeat.com": "VentureBeat",
     "news.ycombinator.com": "Hacker News",
-    "www.producthunt.com": "Product Hunt",
     "www.technologyreview.com": "Technology Review",
     "spectrum.ieee.org": "Spectrum ieee",
     "databricks.com": "Databricks Blog",
@@ -281,8 +278,8 @@ def build_digest(feeds, hours, max_per_cat, tz_name, out_path, min_items=1):
 def parse_args():
     ap = argparse.ArgumentParser(description="Generate a Daily Tech Digest (Markdown).")
     ap.add_argument("--out", default="digest.md", help="Output Markdown file path")
-    ap.add_argument("--hours", type=int, default=72, help="Lookback window in hours")
-    ap.add_argument("--max-per-cat", type=int, default=10, help="Max items per source")
+    ap.add_argument("--hours", type=int, default=24, help="Lookback window in hours")
+    ap.add_argument("--max-per-cat", type=int, default=7, help="Max items per source")
     ap.add_argument("--tz", default=os.environ.get("DIGEST_TZ", "Asia/Tbilisi"),
                     help="Timezone for timestamps and header (e.g., Europe/London)")
     ap.add_argument("--feeds-file", default=None,
