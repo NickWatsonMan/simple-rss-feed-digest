@@ -169,7 +169,7 @@ def build_digest(feeds, hours, max_per_cat, tz_name, min_items=1):
 def parse_args():
     ap = argparse.ArgumentParser(description="Generate a Daily Tech Digest (Markdown).")
     ap.add_argument("--out", default="digest.md", help="Output Markdown file path")
-    ap.add_argument("--hours", type=int, default=72, help="Lookback window in hours")
+    ap.add_argument("--hours", type=int, default=168, help="Lookback window in hours")
     ap.add_argument("--max-per-cat", type=int, default=10, help="Max items per source")
     ap.add_argument("--tz", default=os.environ.get("DIGEST_TZ", "Asia/Tbilisi"),
                     help="Timezone for timestamps and header (e.g., Europe/London)")
